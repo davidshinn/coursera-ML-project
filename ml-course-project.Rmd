@@ -8,14 +8,19 @@ October 26, 2014
 ## Summary
 
 This report discusses my build of a machine learning model to label
-5 different techniques (1 correct and 4 incorrect) of barbell lifts from data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants.  See <http://groupware.les.inf.puc-rio.br/har> for further details.
+5 different techniques (1 correct and 4 incorrect) of barbell lifts from data from
+accelerometers on the belt, forearm, arm, and dumbell of 6 participants.
+See <http://groupware.les.inf.puc-rio.br/har> for further details.
 Using only numeric and fully populated accelerometer measurements as features,
-I use R's caret package and a random forest model to achieve 99% accuracy both in
+I use R's caret package and a random forest model to achieve 98% accuracy both in
 2-fold cross-validation tests with no tuning and in the held out test portion of the
-training data to estimate out of sample accuracy.  As a greater than 99% accuracy
+training data to estimate out of sample accuracy.  As a greater than 98% accuracy
 was achieved with no tuning and on my first model attempt, no further model comparisons
-were attempted.  Nevertheless, as the random forest model takes greater than an hour
-to train, further model analysis would be warranted should this analysis be necessary for future iterations.
+were attempted.  These results suggest that generic models to predict proper technique 
+to future users need not rely on participant specific patterns (as the subject name was
+not used as a training factor).  Nevertheless, as the random forest model takes greater
+than several hours to train, further model analysis would be warranted should this
+analysis be necessary for future iterations.
 
 ```{r}
 library(caret)
@@ -34,7 +39,11 @@ reduce.to.features = function(data){
     return(reduced)
 }
 ```
-Create the held out sample (for purposes of estimating out of sample error)
+Create the held out sample (for purposes of estimating out of sample error).
+Just in case any further exploratory analysis is performed on the training data,
+this sample is excluded from that analysis, so that no data from the held out
+sample could be used to build the model (directly or indirectly), thus providing a
+better estimate of out of sample error.
 ```{r}
 set.seed(0)
 in.training <- createDataPartition(y=training.all$classe,
@@ -67,9 +76,28 @@ system.time(mod.fit.k2 <- train(classe ~ ., data=training.reduced.2))
 predictions.k1 <- predict(mod.fit.k2, training.reduced.1)
 confusionMatrix(data=predictions.k1, reference=training.reduced.1$classe)
 ```
+The k2 cross-validated samples resulted in an average
+of 98% accuracy.
 
 ## Use k1 trained model and predict classe on held out sample
 ```{r cache=TRUE}
 predictions.heldout <- predict(mod.fit.k1, heldout.reduced)
 confusionMatrix(data=predictions.heldout, reference=heldout.reduced$classe)
 ```
+The held out sample accuracy exceeded 98%, indicating a likelihood
+of out of sample accuracy of similar magnitude.  Also, as this was modeled
+on 40% of the sample (50% of 80% of the full training sample available),
+training a model on the full training
+population for purposes of the test submission is likely to produce better results.
+However, there is the potential that the test sample is different enough from the full
+training sample that training on the full training sample may result in overfitting
+and result in poorer than 98% results.
+
+## Results from Test sample submission
+A 95% accuracy, would on average, result in one misclassification in the 20 sample test
+submission.  I achieved correct classifications in all 20 sample test classifications
+using the same model above but training on the full available training population.
+This would suggest that training on the full population resulted in higher than 98%
+accuracy, as 100% accuracy was achieved on the test sample (note that n=20 is too small
+of a sample to interpret the 100% accuracy as statistically significant from the 98%
+accuracy achieved in the cross-validated results).
