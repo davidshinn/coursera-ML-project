@@ -1,0 +1,75 @@
+---
+title: "Coursera Practical Machine Learning Course Project"
+output: html_document
+---
+
+October 26, 2014
+
+## Summary
+
+This report discusses my build of a machine learning model to label
+5 different techniques (1 correct and 4 incorrect) of barbell lifts from data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants.  See <http://groupware.les.inf.puc-rio.br/har> for further details.
+Using only numeric and fully populated accelerometer measurements as features,
+I use R's caret package and a random forest model to achieve 99% accuracy both in
+2-fold cross-validation tests with no tuning and in the held out test portion of the
+training data to estimate out of sample accuracy.  As a greater than 99% accuracy
+was achieved with no tuning and on my first model attempt, no further model comparisons
+were attempted.  Nevertheless, as the random forest model takes greater than an hour
+to train, further model analysis would be warranted should this analysis be necessary for future iterations.
+
+```{r}
+library(caret)
+```
+
+## Load the training data and split appropriately
+```{r cache=TRUE}
+training.all <- read.csv('pml-training.csv', na.strings=c("NA", ""))
+```
+Define function to reduce to accelerometer features that are non-null
+accross all records in the training data.
+```{r}
+reduce.to.features = function(data){
+    reduced <- data[, grepl('dumbell|arm|belt|classe', names(data))]
+    reduced <- reduced[, colSums(!is.na(reduced)) == nrow(reduced)]
+    return(reduced)
+}
+```
+Create the held out sample (for purposes of estimating out of sample error)
+```{r}
+set.seed(0)
+in.training <- createDataPartition(y=training.all$classe,
+                                   p=0.80, list=FALSE)
+training.reduced <- reduce.to.features(training.all[in.training, ])
+heldout.reduced <- reduce.to.features(training.all[-in.training, ])
+dim(training.reduced)
+dim(heldout.reduced)
+```
+Create the 2-fold cross-validation samples from the training sample
+```{r}
+in.training.reduced.1 <- createDataPartition(y=training.reduced$classe,
+                                             p=0.50, list=FALSE)
+training.reduced.1 <- training.reduced[in.training.reduced.1, ]
+dim(training.reduced.1)
+training.reduced.2 <- training.reduced[-in.training.reduced.1, ]
+dim(training.reduced.2)
+```
+
+## Use Random Forest model on 2-fold cross-validation sample
+Cross-validation results from k = 1
+```{r cache=TRUE}
+system.time(mod.fit.k1 <- train(classe ~ ., data=training.reduced.1))
+predictions.k2 <- predict(mod.fit.k1, training.reduced.2)
+confusionMatrix(data=predictions.k2, reference=training.reduced.2$classe)
+```
+Cross-validation results from k = 2
+```{r cache=TRUE}
+system.time(mod.fit.k2 <- train(classe ~ ., data=training.reduced.2))
+predictions.k1 <- predict(mod.fit.k2, training.reduced.1)
+confusionMatrix(data=predictions.k1, reference=training.reduced.1$classe)
+```
+
+## Use k1 trained model and predict classe on held out sample
+```{r cache=TRUE}
+predictions.heldout <- predict(mod.fit.k1, heldout.reduced)
+confusionMatrix(data=predictions.heldout, reference=heldout.reduced$classe)
+```
